@@ -1,9 +1,11 @@
 # SnipPath
 
 Windows Snip-style capture tool that saves the image to Pictures\Screenshots and copies the file path to the clipboard.
+Useful when working with agentic CLI like Codex, Gemini, or Claude Code.
 
 Default hotkeys:
-- Snip: Ctrl+Shift+S
+- Snip and add path to clipboard: Ctrl+Shift+S
+- Snip and add image to clipboard: Ctrl+Shift+C
 - Quit: Ctrl+Shift+Q
 
 Tray icon includes Snip and Quit actions.
