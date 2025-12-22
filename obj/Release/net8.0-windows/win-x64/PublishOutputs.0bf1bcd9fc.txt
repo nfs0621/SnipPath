@@ -1,0 +1,2 @@
+C:\projects\snippath\snippath\artifacts\win-x64\SnipPath.pdb
+C:\projects\snippath\snippath\artifacts\win-x64\SnipPath.exe

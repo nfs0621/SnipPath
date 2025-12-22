@@ -1,0 +1,2 @@
+C:\projects\snippath\snippath\bin\Release\net8.0-windows\win-x64\publish\SnipPath.pdb
+C:\projects\snippath\snippath\bin\Release\net8.0-windows\win-x64\publish\SnipPath.exe
