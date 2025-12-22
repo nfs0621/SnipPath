@@ -1,6 +1,6 @@
 # SnipPath
 
-Snip-style capture tool that saves the image to Pictures\Screenshots and copies the file path to the clipboard.
+Windows Snip-style capture tool that saves the image to Pictures\Screenshots and copies the file path to the clipboard.
 
 Default hotkeys:
 - Snip: Ctrl+Shift+S
