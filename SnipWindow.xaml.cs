@@ -20,7 +20,7 @@ public partial class SnipWindow : Window
     private bool _isDragging;
     private bool _isClosing;
     private WpfPoint _startPoint;
-    private DrawingPoint _startScreen;
+    private IntPtr _snipHandle;
 
     public SnipWindow(Action onClose, SnipCaptureMode mode)
     {
@@ -42,6 +42,7 @@ public partial class SnipWindow : Window
         Top = SystemParameters.VirtualScreenTop;
         Width = SystemParameters.VirtualScreenWidth;
         Height = SystemParameters.VirtualScreenHeight;
+        _snipHandle = new WindowInteropHelper(this).Handle;
         Focus();
     }
 
@@ -49,7 +50,6 @@ public partial class SnipWindow : Window
     {
         _isDragging = true;
         _startPoint = e.GetPosition(this);
-        _startScreen = System.Windows.Forms.Control.MousePosition;
         Selection.Visibility = Visibility.Visible;
         CaptureMouse();
         UpdateSelection(_startPoint, _startPoint);
@@ -76,13 +76,16 @@ public partial class SnipWindow : Window
         _isDragging = false;
         ReleaseMouseCapture();
 
-        var endScreen = System.Windows.Forms.Control.MousePosition;
-        var rect = BuildRect(_startScreen, endScreen);
+        var endPoint = e.GetPosition(this);
+        var rect = BuildRect(_startPoint, endPoint);
 
         if (rect.Width < 2 || rect.Height < 2)
         {
-            Close();
-            return;
+            if (!TryGetWindowRectFromCursor(out rect))
+            {
+                Close();
+                return;
+            }
         }
 
         try
@@ -125,6 +128,21 @@ public partial class SnipWindow : Window
         _isClosing = true;
         Deactivated -= OnDeactivated;
         base.OnClosing(e);
+    }
+
+    private Rectangle BuildRect(WpfPoint start, WpfPoint end)
+    {
+        var startScreen = ToScreenPoint(start);
+        var endScreen = ToScreenPoint(end);
+        return BuildRect(startScreen, endScreen);
+    }
+
+    private DrawingPoint ToScreenPoint(WpfPoint point)
+    {
+        var screenPoint = PointToScreen(point);
+        return new DrawingPoint(
+            (int)Math.Round(screenPoint.X),
+            (int)Math.Round(screenPoint.Y));
     }
 
     private static Rectangle BuildRect(DrawingPoint start, DrawingPoint end)
@@ -205,6 +223,90 @@ public partial class SnipWindow : Window
 
     [DllImport("gdi32.dll")]
     private static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(DrawingPoint point);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
+
+    private bool TryGetWindowRectFromCursor(out Rectangle rect)
+    {
+        rect = Rectangle.Empty;
+
+        var cursorScreen = PointToScreen(Mouse.GetPosition(this));
+        var cursorPoint = new DrawingPoint(
+            (int)Math.Round(cursorScreen.X),
+            (int)Math.Round(cursorScreen.Y));
+
+        var hwnd = WindowFromPoint(cursorPoint);
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        if (hwnd == _snipHandle)
+        {
+            hwnd = GetWindow(hwnd, GW_HWNDNEXT);
+        }
+
+        if (hwnd == IntPtr.Zero || hwnd == _snipHandle)
+        {
+            return false;
+        }
+
+        hwnd = GetAncestor(hwnd, GA_ROOT);
+        if (hwnd == IntPtr.Zero || hwnd == _snipHandle)
+        {
+            return false;
+        }
+
+        if (!TryGetExtendedFrameBounds(hwnd, out rect))
+        {
+            if (!GetWindowRect(hwnd, out var rawRect))
+            {
+                return false;
+            }
+
+            rect = new Rectangle(rawRect.Left, rawRect.Top, rawRect.Right - rawRect.Left, rawRect.Bottom - rawRect.Top);
+        }
+
+        return rect.Width > 1 && rect.Height > 1;
+    }
+
+    private static bool TryGetExtendedFrameBounds(IntPtr hwnd, out Rectangle rect)
+    {
+        rect = Rectangle.Empty;
+        if (DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out var rawRect, Marshal.SizeOf<Rect>()) != 0)
+        {
+            return false;
+        }
+
+        rect = new Rectangle(rawRect.Left, rawRect.Top, rawRect.Right - rawRect.Left, rawRect.Bottom - rawRect.Top);
+        return rect.Width > 1 && rect.Height > 1;
+    }
+
+    private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+    private const uint GW_HWNDNEXT = 2;
+    private const uint GA_ROOT = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
 }
 
 public enum SnipCaptureMode
