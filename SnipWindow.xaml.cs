@@ -88,25 +88,64 @@ public partial class SnipWindow : Window
             }
         }
 
+        string? error = null;
         try
         {
             using var bitmap = CaptureBitmap(rect);
             if (_mode == SnipCaptureMode.CopyImage)
             {
-                CopyImageToClipboard(bitmap);
+                if (!TrySetClipboard(() => CopyImageToClipboard(bitmap)))
+                {
+                    var path = SaveCapture(bitmap);
+                    error = $"Couldn't copy the image because another app is using the clipboard.\n\nThe snip was saved to:\n{path}";
+                }
             }
             else
             {
                 var path = SaveCapture(bitmap);
-                System.Windows.Clipboard.SetText(path);
+                if (!TrySetClipboard(() => System.Windows.Clipboard.SetText(path)))
+                {
+                    error = $"Couldn't copy the path because another app is using the clipboard.\n\nThe snip was saved to:\n{path}";
+                }
             }
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"Capture failed: {ex.Message}", "SnipPath");
+            error = $"Capture failed: {ex.Message}";
         }
 
+        // Close before showing any message so the overlay isn't left covering the screen.
         Close();
+
+        if (error != null)
+        {
+            System.Windows.MessageBox.Show(error, "SnipPath");
+        }
+    }
+
+    private const int ClipboardAttempts = 3;
+    private const int ClipboardRetryDelayMs = 200;
+
+    // Opening the clipboard fails while another app (clipboard managers, RDP, Office) holds it,
+    // which is usually only for a moment.
+    private static bool TrySetClipboard(Action setClipboard)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                setClipboard();
+                return true;
+            }
+            catch (ExternalException) when (attempt < ClipboardAttempts)
+            {
+                Thread.Sleep(ClipboardRetryDelayMs);
+            }
+            catch (ExternalException)
+            {
+                return false;
+            }
+        }
     }
 
     private void OnKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
