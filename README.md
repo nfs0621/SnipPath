@@ -1,6 +1,7 @@
 # SnipPath
 
-Windows Snip-style capture tool that saves the image to Pictures\Screenshots and copies the file path to the clipboard.
+Windows Snip-style capture tool that saves the image to `%TEMP%\SnipPath` and copies the file path to the clipboard.
+Snips older than 7 days are deleted automatically.
 Useful when working with agentic CLI like Codex, Gemini, or Claude Code.
 
 Default hotkeys:

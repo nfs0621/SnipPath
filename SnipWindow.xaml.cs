@@ -165,18 +165,43 @@ public partial class SnipWindow : Window
         return bitmap;
     }
 
+    private static readonly TimeSpan CaptureRetention = TimeSpan.FromDays(7);
+
+    // Snips are throwaway inputs for CLI tools, so keep them local in %TEMP% rather than
+    // in Pictures, which is often synced to OneDrive.
     private static string SaveCapture(Bitmap bitmap)
     {
-        var screenshotsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-            "Screenshots");
-        Directory.CreateDirectory(screenshotsDir);
+        var capturesDir = Path.Combine(Path.GetTempPath(), "SnipPath");
+        Directory.CreateDirectory(capturesDir);
+        DeleteOldCaptures(capturesDir);
 
         var filename = $"SnipPath_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
-        var path = Path.Combine(screenshotsDir, filename);
+        var path = Path.Combine(capturesDir, filename);
 
         bitmap.Save(path, ImageFormat.Png);
         return path;
+    }
+
+    private static void DeleteOldCaptures(string capturesDir)
+    {
+        var cutoff = DateTime.Now - CaptureRetention;
+        foreach (var file in Directory.EnumerateFiles(capturesDir, "SnipPath_*.png"))
+        {
+            try
+            {
+                if (File.GetLastWriteTime(file) < cutoff)
+                {
+                    File.Delete(file);
+                }
+            }
+            catch (IOException)
+            {
+                // File is in use (e.g. open in a viewer); try again on a later snip.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static void CopyImageToClipboard(Bitmap bitmap)
