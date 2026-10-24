@@ -63,8 +63,10 @@ public sealed class HotkeyWindow : Window, IDisposable
         {
             Text = "SnipPath",
             Visible = true,
-            Icon = System.Drawing.Icon.ExtractAssociatedIcon(
-                System.Reflection.Assembly.GetExecutingAssembly().Location)
+            // Assembly.Location is empty in single-file builds; ProcessPath is the .exe in both layouts.
+            Icon = (Environment.ProcessPath is { } exePath
+                    ? System.Drawing.Icon.ExtractAssociatedIcon(exePath)
+                    : null)
                 ?? System.Drawing.SystemIcons.Application,
             ContextMenuStrip = BuildTrayMenu()
         };
