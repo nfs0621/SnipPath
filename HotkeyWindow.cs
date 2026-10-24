@@ -15,6 +15,7 @@ public sealed class HotkeyWindow : Window, IDisposable
     private const int WM_HOTKEY = 0x0312;
     private const uint MOD_CONTROL = 0x0002;
     private const uint MOD_SHIFT = 0x0004;
+    private const uint MOD_WIN = 0x0008;
 
     private HwndSource? _source;
     private bool _snipActive;
@@ -47,9 +48,9 @@ public sealed class HotkeyWindow : Window, IDisposable
         }
 
         var vkClipboard = KeyInterop.VirtualKeyFromKey(Key.C);
-        if (!RegisterHotKey(_source.Handle, HotkeySnipClipboardId, MOD_CONTROL | MOD_SHIFT, (uint)vkClipboard))
+        if (!RegisterHotKey(_source.Handle, HotkeySnipClipboardId, MOD_WIN | MOD_SHIFT, (uint)vkClipboard))
         {
-            System.Windows.MessageBox.Show("Failed to register hotkey Ctrl+Shift+C.", "SnipPath");
+            System.Windows.MessageBox.Show("Failed to register hotkey Win+Shift+C.", "SnipPath");
         }
 
         var vkQuit = KeyInterop.VirtualKeyFromKey(Key.Q);
@@ -131,7 +132,7 @@ public sealed class HotkeyWindow : Window, IDisposable
             });
         };
 
-        var clipboardItem = new System.Windows.Forms.ToolStripMenuItem("Snip to Clipboard (Ctrl+Shift+C)");
+        var clipboardItem = new System.Windows.Forms.ToolStripMenuItem("Snip to Clipboard (Win+Shift+C)");
         clipboardItem.Click += (_, _) =>
         {
             var app = (App)System.Windows.Application.Current;

@@ -5,7 +5,7 @@ Useful when working with agentic CLI like Codex, Gemini, or Claude Code.
 
 Default hotkeys:
 - Snip and add path to clipboard: Ctrl+Shift+S
-- Snip and add image to clipboard: Ctrl+Shift+C
+- Snip and add image to clipboard: Win+Shift+C
 - Quit: Ctrl+Shift+Q
 
 Tray icon includes Snip and Quit actions.
