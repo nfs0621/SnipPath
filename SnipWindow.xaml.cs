@@ -225,19 +225,25 @@ public partial class SnipWindow : Window
     private static extern bool DeleteObject(IntPtr hObject);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr WindowFromPoint(DrawingPoint point);
-
-    [DllImport("user32.dll")]
     private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 
     private bool TryGetWindowRectFromCursor(out Rectangle rect)
     {
@@ -248,24 +254,8 @@ public partial class SnipWindow : Window
             (int)Math.Round(cursorScreen.X),
             (int)Math.Round(cursorScreen.Y));
 
-        var hwnd = WindowFromPoint(cursorPoint);
+        var hwnd = FindWindowBelowSnip(cursorPoint);
         if (hwnd == IntPtr.Zero)
-        {
-            return false;
-        }
-
-        if (hwnd == _snipHandle)
-        {
-            hwnd = GetWindow(hwnd, GW_HWNDNEXT);
-        }
-
-        if (hwnd == IntPtr.Zero || hwnd == _snipHandle)
-        {
-            return false;
-        }
-
-        hwnd = GetAncestor(hwnd, GA_ROOT);
-        if (hwnd == IntPtr.Zero || hwnd == _snipHandle)
         {
             return false;
         }
@@ -283,10 +273,57 @@ public partial class SnipWindow : Window
         return rect.Width > 1 && rect.Height > 1;
     }
 
+    // The overlay covers the whole screen, so WindowFromPoint only ever finds the overlay.
+    // Walk the top-level windows below it in z-order and take the first one the user can see under the cursor.
+    private IntPtr FindWindowBelowSnip(DrawingPoint point)
+    {
+        var hwnd = GetWindow(_snipHandle, GW_HWNDNEXT);
+        while (hwnd != IntPtr.Zero)
+        {
+            if (IsCandidateWindow(hwnd, point))
+            {
+                return hwnd;
+            }
+
+            hwnd = GetWindow(hwnd, GW_HWNDNEXT);
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static bool IsCandidateWindow(IntPtr hwnd, DrawingPoint point)
+    {
+        if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
+        {
+            return false;
+        }
+
+        // Click-through overlays (e.g. GPU or recording overlays) can't be the window the user clicked on.
+        var exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+        if ((exStyle & WS_EX_TRANSPARENT) != 0)
+        {
+            return false;
+        }
+
+        // Cloaked windows (other virtual desktops, suspended UWP apps) report as visible but aren't on screen.
+        if (DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
+        {
+            return false;
+        }
+
+        if (!GetWindowRect(hwnd, out var rawRect))
+        {
+            return false;
+        }
+
+        return point.X >= rawRect.Left && point.X < rawRect.Right
+            && point.Y >= rawRect.Top && point.Y < rawRect.Bottom;
+    }
+
     private static bool TryGetExtendedFrameBounds(IntPtr hwnd, out Rectangle rect)
     {
         rect = Rectangle.Empty;
-        if (DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out var rawRect, Marshal.SizeOf<Rect>()) != 0)
+        if (DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out Rect rawRect, Marshal.SizeOf<Rect>()) != 0)
         {
             return false;
         }
@@ -296,8 +333,10 @@ public partial class SnipWindow : Window
     }
 
     private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+    private const int DWMWA_CLOAKED = 14;
     private const uint GW_HWNDNEXT = 2;
-    private const uint GA_ROOT = 2;
+    private const int GWL_EXSTYLE = -20;
+    private const long WS_EX_TRANSPARENT = 0x00000020;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
