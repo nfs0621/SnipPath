@@ -18,7 +18,7 @@ Tray icon includes Snip and Quit actions.
 - Run `SnipPath.exe`.
 
 Notes:
-- This portable build is framework-dependent. Install the .NET 8 Desktop Runtime if Windows prompts you.
+- This portable build is framework-dependent. Install the .NET 10 Desktop Runtime (or newer) if Windows prompts you.
 
 ## Build and run
 

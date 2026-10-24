@@ -11,7 +11,7 @@
 - `dotnet clean SnipPath.csproj` removes build outputs.
 
 ## Coding Style & Naming Conventions
-- Language: C# (.NET 8, WPF).
+- Language: C# (.NET 10, WPF).
 - Indentation: 4 spaces.
 - Types/Methods: PascalCase; private fields: `_camelCase`.
 - Prefer explicit namespaces when WPF and WinForms types overlap (e.g., `System.Windows.Application` vs `System.Windows.Forms.Application`).
